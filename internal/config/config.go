@@ -41,9 +41,14 @@ func Load() (Config, error) {
 		return Config{}, errors.New("both CLERK_ISSUER_URL and CLERK_JWKS_URL are required when Clerk auth is enabled")
 	}
 
+	httpAddr, err := getHTTPAddr()
+	if err != nil {
+		return Config{}, err
+	}
+
 	cfg := Config{
 		AppEnv:             getEnv("APP_ENV", "development"),
-		HTTPAddr:           getEnv("HTTP_ADDR", ":8080"),
+		HTTPAddr:           httpAddr,
 		DatabaseURL:        strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		ReadTimeout:        10 * time.Second,
 		WriteTimeout:       10 * time.Second,
@@ -58,21 +63,21 @@ func Load() (Config, error) {
 		},
 	}
 
-	var err error
-	if cfg.ReadTimeout, err = durationEnv("HTTP_READ_TIMEOUT", cfg.ReadTimeout); err != nil {
-		return Config{}, err
+	var parseErr error
+	if cfg.ReadTimeout, parseErr = durationEnv("HTTP_READ_TIMEOUT", cfg.ReadTimeout); parseErr != nil {
+		return Config{}, parseErr
 	}
-	if cfg.WriteTimeout, err = durationEnv("HTTP_WRITE_TIMEOUT", cfg.WriteTimeout); err != nil {
-		return Config{}, err
+	if cfg.WriteTimeout, parseErr = durationEnv("HTTP_WRITE_TIMEOUT", cfg.WriteTimeout); parseErr != nil {
+		return Config{}, parseErr
 	}
-	if cfg.IdleTimeout, err = durationEnv("HTTP_IDLE_TIMEOUT", cfg.IdleTimeout); err != nil {
-		return Config{}, err
+	if cfg.IdleTimeout, parseErr = durationEnv("HTTP_IDLE_TIMEOUT", cfg.IdleTimeout); parseErr != nil {
+		return Config{}, parseErr
 	}
-	if cfg.ShutdownTimeout, err = durationEnv("HTTP_SHUTDOWN_TIMEOUT", cfg.ShutdownTimeout); err != nil {
-		return Config{}, err
+	if cfg.ShutdownTimeout, parseErr = durationEnv("HTTP_SHUTDOWN_TIMEOUT", cfg.ShutdownTimeout); parseErr != nil {
+		return Config{}, parseErr
 	}
-	if cfg.HealthTimeout, err = durationEnv("HEALTH_TIMEOUT", cfg.HealthTimeout); err != nil {
-		return Config{}, err
+	if cfg.HealthTimeout, parseErr = durationEnv("HEALTH_TIMEOUT", cfg.HealthTimeout); parseErr != nil {
+		return Config{}, parseErr
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -92,6 +97,24 @@ func getEnv(key, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func getHTTPAddr() (string, error) {
+	if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
+		if strings.HasPrefix(port, ":") {
+			return port, nil
+		}
+		if _, err := strconv.Atoi(port); err == nil {
+			return ":" + port, nil
+		}
+		return "", fmt.Errorf("invalid PORT value: %q", port)
+	}
+
+	if addr := strings.TrimSpace(os.Getenv("HTTP_ADDR")); addr != "" {
+		return addr, nil
+	}
+
+	return ":8080", nil
 }
 
 func parseList(raw string) []string {

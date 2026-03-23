@@ -26,3 +26,15 @@ func TestLoadParsesDefaults(t *testing.T) {
 		t.Fatalf("AppEnv = %s", cfg.AppEnv)
 	}
 }
+
+func TestLoadUsesPortEnv(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("PORT", "9090")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.HTTPAddr != ":9090" {
+		t.Fatalf("HTTPAddr = %s", cfg.HTTPAddr)
+	}
+}

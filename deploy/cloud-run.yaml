@@ -1,0 +1,29 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: tecora-backend
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE_CONNECTION_NAME
+    spec:
+      serviceAccountName: tecora-backend@PROJECT_ID.iam.gserviceaccount.com
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY/tecora-backend:TAG
+          ports:
+            - containerPort: 8080
+          env:
+            - name: APP_ENV
+              value: production
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: tecora-database-url
+                  key: latest
+            - name: CORS_ALLOWED_ORIGINS
+              value: https://your-frontend.example
+          # Clerk is intentionally left out of the first rollout.
+          # Add CLERK_ISSUER_URL, CLERK_JWKS_URL, and CLERK_AUDIENCE later if/when protected routes are enabled.

@@ -74,6 +74,7 @@ Required Clerk variables:
 ### 1. Copy environment variables
 
 Use `.env.example` as the starting point.
+The API entrypoint also loads `.env` from the repository root when you run it locally.
 
 ### 2. Start PostgreSQL and the API
 

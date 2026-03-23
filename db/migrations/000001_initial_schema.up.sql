@@ -1,0 +1,2 @@
+-- Initial migration placeholder.
+-- Add the first application tables here when the domain model is defined.

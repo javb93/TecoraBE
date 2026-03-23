@@ -1,0 +1,1 @@
+-- Revert the initial migration placeholder.

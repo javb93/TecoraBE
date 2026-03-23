@@ -83,6 +83,7 @@ docker compose up --build
 ```
 
 The API listens on `http://localhost:8080`.
+The Dockerized PostgreSQL instance publishes on host port `5433` to avoid collisions with any local Postgres service on `5432`.
 
 ### 3. Check health
 

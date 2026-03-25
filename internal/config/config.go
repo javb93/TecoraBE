@@ -13,6 +13,7 @@ type Config struct {
 	AppEnv             string
 	HTTPAddr           string
 	DatabaseURL        string
+	AdminClerkUserIDs  []string
 	ReadTimeout        time.Duration
 	WriteTimeout       time.Duration
 	IdleTimeout        time.Duration
@@ -36,6 +37,7 @@ func Load() (Config, error) {
 	clerkIssuer := strings.TrimSpace(os.Getenv("CLERK_ISSUER_URL"))
 	clerkJWKS := strings.TrimSpace(os.Getenv("CLERK_JWKS_URL"))
 	clerkAudience := strings.TrimSpace(os.Getenv("CLERK_AUDIENCE"))
+	adminClerkUserIDs := parseList(getEnv("ADMIN_CLERK_USER_IDS", ""))
 
 	if (clerkIssuer != "" || clerkJWKS != "") && (clerkIssuer == "" || clerkJWKS == "") {
 		return Config{}, errors.New("both CLERK_ISSUER_URL and CLERK_JWKS_URL are required when Clerk auth is enabled")
@@ -50,6 +52,7 @@ func Load() (Config, error) {
 		AppEnv:             getEnv("APP_ENV", "development"),
 		HTTPAddr:           httpAddr,
 		DatabaseURL:        strings.TrimSpace(os.Getenv("DATABASE_URL")),
+		AdminClerkUserIDs:  adminClerkUserIDs,
 		ReadTimeout:        10 * time.Second,
 		WriteTimeout:       10 * time.Second,
 		IdleTimeout:        60 * time.Second,

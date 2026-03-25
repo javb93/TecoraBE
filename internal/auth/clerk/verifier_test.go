@@ -8,9 +8,10 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"math/big"
 	"net/http"
-	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,11 +40,12 @@ func TestVerifierAcceptsValidRS256Token(t *testing.T) {
 	kid := "test-key"
 	now := time.Now().UTC()
 	claims := map[string]any{
-		"sub": "user_123",
-		"iss": "https://clerk.example.com",
-		"aud": "tecora",
-		"exp": now.Add(time.Hour).Unix(),
-		"nbf": now.Add(-time.Minute).Unix(),
+		"sub":      "user_123",
+		"iss":      "https://clerk.example.com",
+		"aud":      "tecora",
+		"org_slug": "demo-alpha",
+		"exp":      now.Add(time.Hour).Unix(),
+		"nbf":      now.Add(-time.Minute).Unix(),
 	}
 
 	token, err := signToken(priv, kid, claims)
@@ -51,18 +53,25 @@ func TestVerifierAcceptsValidRS256Token(t *testing.T) {
 		t.Fatalf("sign token: %v", err)
 	}
 
-	jwksServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"keys":[` + jwkFromPublicKey(kid, &priv.PublicKey) + `]}`))
-	}))
-	defer jwksServer.Close()
-
 	v, err := NewVerifier(config.ClerkConfig{
 		IssuerURL: "https://clerk.example.com",
-		JWKSURL:   jwksServer.URL,
+		JWKSURL:   "https://jwks.example.com",
 		Audience:  "tecora",
 	}, slog.Default())
 	if err != nil {
 		t.Fatalf("NewVerifier: %v", err)
+	}
+	v.httpClient = &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			body := `{"keys":[` + jwkFromPublicKey(kid, &priv.PublicKey) + `]}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Status:     "200 OK",
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     make(http.Header),
+				Request:    req,
+			}, nil
+		}),
 	}
 
 	got, err := v.Verify(context.Background(), token)
@@ -72,6 +81,15 @@ func TestVerifierAcceptsValidRS256Token(t *testing.T) {
 	if got.Subject != "user_123" {
 		t.Fatalf("subject = %q", got.Subject)
 	}
+	if got.OrgSlug != "demo-alpha" {
+		t.Fatalf("org slug = %q", got.OrgSlug)
+	}
+}
+
+type roundTripperFunc func(req *http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 func signToken(priv *rsa.PrivateKey, kid string, claims map[string]any) (string, error) {

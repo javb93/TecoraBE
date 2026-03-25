@@ -91,3 +91,67 @@ func TestClerkAuthAcceptsValidToken(t *testing.T) {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
 	}
 }
+
+func TestClerkAdminAllowlistRejectsNonAdmin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(string(ClaimsKey), &clerk.Claims{Subject: "user_123"})
+		c.Next()
+	})
+	r.Use(ClerkAdminAllowlist([]string{"admin_1"}))
+	r.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}
+
+func TestClerkAdminAllowlistAcceptsAdmin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(string(ClaimsKey), &clerk.Claims{Subject: "admin_1"})
+		c.Next()
+	})
+	r.Use(ClerkAdminAllowlist([]string{"admin_1"}))
+	r.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+func TestCurrentOrgSlug(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(string(ClaimsKey), &clerk.Claims{OrgSlug: "demo-alpha"})
+		c.Next()
+	})
+	r.Use(ClerkOrgScope())
+	r.GET("/", func(c *gin.Context) {
+		slug, ok := CurrentOrgSlug(c)
+		if !ok || slug != "demo-alpha" {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+}

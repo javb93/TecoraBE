@@ -40,6 +40,7 @@ type Claims struct {
 	Expiry    int64           `json:"exp"`
 	NotBefore int64           `json:"nbf"`
 	SubjectID string          `json:"sid"`
+	OrgSlug   string          `json:"org_slug,omitempty"`
 }
 
 func NewVerifier(cfg config.ClerkConfig, logger *slog.Logger) (*Verifier, error) {

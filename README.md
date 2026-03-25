@@ -10,6 +10,7 @@ The initial goal is intentionally small: ship a Go API that can be deployed now,
 - Versioned routes under `/api/v1`
 - Public health endpoint at `GET /api/v1/health`
 - Sample protected route at `GET /api/v1/private/me`
+- Admin organization registry routes under `/api/v1/admin/organizations`
 - PostgreSQL wiring using `pgx`
 - Clerk JWT verification middleware for protected routes, deferred for the first Cloud Run rollout
 - Docker-first local development setup
@@ -70,6 +71,7 @@ Required Clerk variables:
 - `CLERK_ISSUER_URL`
 - `CLERK_JWKS_URL`
 - `CLERK_AUDIENCE` if your project uses an audience value
+- `ADMIN_CLERK_USER_IDS` for admin organization management routes, as a comma-separated list of Clerk `sub` values
 
 ## Local development
 
@@ -110,6 +112,7 @@ curl http://localhost:8080/api/v1/private/me \
 - `CLERK_ISSUER_URL` - Clerk issuer URL
 - `CLERK_JWKS_URL` - Clerk JWKS URL
 - `CLERK_AUDIENCE` - optional Clerk audience
+- `ADMIN_CLERK_USER_IDS` - comma-separated Clerk user IDs allowed to manage organizations
 - `CORS_ALLOWED_ORIGINS` - comma-separated allowed origins
 
 `HTTP_ADDR` is still accepted as a fallback listen address for older local setups, but new deployment configuration should use `PORT`.
@@ -132,9 +135,9 @@ Current strategy:
 - commit each schema change as a new migration pair
 - apply migrations before deploying any feature that depends on new tables or columns
 
-The bootstrap includes the folder structure, but no application-level schema yet because the first release only needs the health endpoint and infrastructure wiring.
+The bootstrap now includes the first application schema: an `organizations` table for multitenant scoping.
 
-The initial migration files are placeholders so the workflow is visible from day one without inventing tables before the domain model exists.
+The initial migration pair still exists as the base schema placeholder, and the next migration creates the `organizations` table and seeds temporary demo organizations so the admin registry exists before the dashboard ships.
 
 ## Deployment
 
@@ -195,8 +198,8 @@ When protected routes are needed in production, add the Clerk environment variab
 The next likely additions are:
 
 - user/session endpoints
-- Clerk-protected resource routes
+- Clerk-protected resource routes scoped by organization slug
 - request validation helpers
-- Postgres-backed domain tables
+- Postgres-backed domain tables referencing `organization_id`
 - migration runner or deploy-time migration job
 - observability improvements

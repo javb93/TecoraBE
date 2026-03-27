@@ -15,6 +15,7 @@ import (
 	"tecora/internal/health"
 	"tecora/internal/middleware"
 	"tecora/internal/organizations"
+	"tecora/internal/users"
 )
 
 type Dependencies struct {
@@ -62,11 +63,14 @@ func (s *Server) Run(parent context.Context) error {
 
 	orgRepo := organizations.NewRepository(s.db)
 	orgHandler := organizations.NewHandler(orgRepo)
+	userRepo := users.NewRepository(s.db)
+	userHandler := users.NewHandler(userRepo, orgRepo)
 
 	admin := api.Group("/admin")
 	admin.Use(middleware.ClerkAuth(s.v))
 	admin.Use(middleware.ClerkAdminAllowlist(s.cfg.AdminClerkUserIDs))
 	organizations.RegisterAdminRoutes(admin, orgHandler)
+	users.RegisterAdminRoutes(admin, userHandler)
 
 	srv := &http.Server{
 		Addr:         s.cfg.HTTPAddr,

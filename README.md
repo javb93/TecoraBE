@@ -15,7 +15,7 @@ The initial goal is intentionally small: ship a Go API that can be deployed now,
 - Clerk JWT verification middleware for protected routes, deferred for the first Cloud Run rollout
 - Docker-first local development setup
 - Basic graceful shutdown and structured logging
-- Migration scaffolding for future schema changes
+- Startup-applied SQL migrations for additive schema changes
 
 ## Architecture
 
@@ -31,6 +31,7 @@ The code is organized as a small, conventional Go service:
 - `db/migrations` stores SQL migrations.
 
 The service uses a single binary and relies on environment variables for configuration.
+On startup it connects to PostgreSQL, applies any pending embedded migrations, and only then starts serving HTTP traffic.
 
 ## Health endpoint
 
@@ -128,12 +129,21 @@ postgres://USER:PASSWORD@/DBNAME?host=/cloudsql/PROJECT_ID:REGION:INSTANCE_CONNE
 PostgreSQL runs locally through Docker Compose.
 
 Migration files live in `db/migrations` and follow the standard `up` and `down` SQL pattern.
+They are embedded into the binary and applied automatically during service startup.
 
 Current strategy:
 
 - keep the schema in SQL files
 - commit each schema change as a new migration pair
-- apply migrations before deploying any feature that depends on new tables or columns
+- let the service apply pending migrations during startup before the new revision becomes ready
+
+Startup migration guardrails for the current Cloud Run phase:
+
+- keep migrations additive and backward-compatible
+- keep migrations short
+- avoid destructive schema changes, long backfills, and rollout-incompatible constraint changes
+- keep Cloud Run capped at one instance while this simplified model is in use
+- revisit this approach before enabling normal autoscaling or non-additive schema evolution
 
 The bootstrap now includes the first application schema: an `organizations` table for multitenant scoping.
 
@@ -178,6 +188,9 @@ Replace the placeholders in `deploy/cloud-run.yaml` and deploy the revision:
 ```bash
 gcloud run services replace deploy/cloud-run.yaml --region REGION --project PROJECT_ID
 ```
+
+The manifest intentionally caps the service at one instance for this phase so startup migrations stay serialized in normal operation.
+Cloud Run can still briefly overlap revisions during rollout, so each migration must remain additive and safe to run with the Postgres migration lock in place.
 
 ### 5. Verify health
 

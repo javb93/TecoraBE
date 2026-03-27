@@ -7,15 +7,34 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"tecora/internal/auth/clerk"
 	"tecora/internal/config"
 	"tecora/internal/database"
+	"tecora/internal/migrations"
 	"tecora/internal/server"
 )
 
+type serverRunner interface {
+	Run(context.Context) error
+}
+
+var (
+	loadConfig    = config.Load
+	newDatabase   = database.New
+	closeDatabase = func(pool *pgxpool.Pool) {
+		pool.Close()
+	}
+	newVerifier   = clerk.NewVerifier
+	runMigrations = migrations.Up
+	newServer     = func(deps server.Dependencies) serverRunner {
+		return server.New(deps)
+	}
+)
+
 func Run(ctx context.Context) error {
-	cfg, err := config.Load()
+	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
@@ -26,21 +45,25 @@ func Run(ctx context.Context) error {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	dbPool, err := database.New(ctx, cfg.DatabaseURL)
+	dbPool, err := newDatabase(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
-	defer dbPool.Close()
+	defer closeDatabase(dbPool)
+
+	if err := runMigrations(ctx, logger, cfg.DatabaseURL); err != nil {
+		return err
+	}
 
 	var verifier *clerk.Verifier
 	if cfg.Clerk.Enabled() {
-		verifier, err = clerk.NewVerifier(cfg.Clerk, logger)
+		verifier, err = newVerifier(cfg.Clerk, logger)
 		if err != nil {
 			return err
 		}
 	}
 
-	srv := server.New(server.Dependencies{
+	srv := newServer(server.Dependencies{
 		Config:   cfg,
 		Logger:   logger,
 		DB:       dbPool,

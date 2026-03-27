@@ -6,6 +6,7 @@ spec:
   template:
     metadata:
       annotations:
+        autoscaling.knative.dev/maxScale: "1"
         run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE_CONNECTION_NAME
     spec:
       serviceAccountName: tecora-backend@PROJECT_ID.iam.gserviceaccount.com

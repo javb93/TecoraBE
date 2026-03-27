@@ -72,6 +72,11 @@ func (s *Server) Run(parent context.Context) error {
 	organizations.RegisterAdminRoutes(admin, orgHandler)
 	users.RegisterAdminRoutes(admin, userHandler)
 
+	org := api.Group("/org")
+	org.Use(middleware.ClerkAuth(s.v))
+	org.Use(users.RequireOrgAccess(userRepo))
+	users.RegisterOrgRoutes(org, userHandler)
+
 	srv := &http.Server{
 		Addr:         s.cfg.HTTPAddr,
 		Handler:      router,

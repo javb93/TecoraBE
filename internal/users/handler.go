@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"tecora/internal/middleware"
 	"tecora/internal/organizations"
 )
 
@@ -40,6 +41,10 @@ func RegisterAdminRoutes(group *gin.RouterGroup, handler *Handler) {
 	group.DELETE("/users/:clerk_user_id", handler.Delete)
 }
 
+func RegisterOrgRoutes(group *gin.RouterGroup, handler *Handler) {
+	group.GET("/me", handler.Me)
+}
+
 func (h *Handler) List(c *gin.Context) {
 	users, err := h.store.ListActive(c.Request.Context())
 	if err != nil {
@@ -64,6 +69,35 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user)
+}
+
+func (h *Handler) Me(c *gin.Context) {
+	user, ok := CurrentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing current user"})
+		return
+	}
+
+	org, ok := CurrentOrganization(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing current organization"})
+		return
+	}
+
+	claims, ok := middleware.CurrentClaims(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing clerk claims"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user":         user,
+		"organization": org,
+		"auth": gin.H{
+			"clerk_user_id": claims.Subject,
+			"org_slug":      org.Slug,
+		},
+	})
 }
 
 type createRequest struct {

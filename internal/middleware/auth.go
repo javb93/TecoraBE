@@ -159,3 +159,17 @@ func CurrentOrgSlug(c *gin.Context) (string, bool) {
 
 	return strings.TrimSpace(orgSlug), orgSlug != ""
 }
+
+func CurrentClaims(c *gin.Context) (*clerk.Claims, bool) {
+	raw, ok := c.Get(string(ClaimsKey))
+	if !ok {
+		return nil, false
+	}
+
+	claims, ok := raw.(*clerk.Claims)
+	if !ok || claims == nil {
+		return nil, false
+	}
+
+	return claims, true
+}

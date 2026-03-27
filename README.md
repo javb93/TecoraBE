@@ -10,6 +10,7 @@ The initial goal is intentionally small: ship a Go API that can be deployed now,
 - Versioned routes under `/api/v1`
 - Public health endpoint at `GET /api/v1/health`
 - Sample protected route at `GET /api/v1/private/me`
+- Organization-scoped member endpoint at `GET /api/v1/org/me`
 - Admin organization registry routes under `/api/v1/admin/organizations`
 - PostgreSQL wiring using `pgx`
 - Clerk JWT verification middleware for protected routes, deferred for the first Cloud Run rollout
@@ -67,6 +68,8 @@ The verifier checks:
 Important: if Clerk environment variables are not provided yet, the protected route group remains present but returns a clear configuration error until Clerk is configured.
 For the initial Cloud Run deployment, leave Clerk environment variables empty so the first rollout stays focused on Cloud SQL and the health endpoint.
 
+For organization-scoped application routes, Clerk authentication is only the first step. The API resolves the authenticated local `users` record from the Clerk `sub` claim and uses that stored organization membership as the tenancy boundary. If the Clerk token also includes `org_slug`, the API treats it as a cross-check against the local membership before allowing access.
+
 Required Clerk variables:
 
 - `CLERK_ISSUER_URL`
@@ -104,6 +107,17 @@ When Clerk is configured, send a bearer token to:
 curl http://localhost:8080/api/v1/private/me \
   -H "Authorization: Bearer <clerk-session-jwt>"
 ```
+
+### 5. Exercise the organization-scoped route
+
+When Clerk is configured and the authenticated Clerk user has a matching local `users` row, send a bearer token to:
+
+```bash
+curl http://localhost:8080/api/v1/org/me \
+  -H "Authorization: Bearer <clerk-session-jwt>"
+```
+
+The response returns the resolved local user, the organization derived from local membership, and the Clerk auth context used for the request.
 
 ## Environment variables
 
@@ -211,7 +225,7 @@ When protected routes are needed in production, add the Clerk environment variab
 The next likely additions are:
 
 - user/session endpoints
-- Clerk-protected resource routes scoped by organization slug
+- Clerk-protected resource routes scoped by resolved organization membership
 - request validation helpers
 - Postgres-backed domain tables referencing `organization_id`
 - migration runner or deploy-time migration job

@@ -191,6 +191,22 @@ func adminRouter(store Store, orgs OrganizationResolver) *gin.Engine {
 	return r
 }
 
+func orgRouter(store Store, orgs OrganizationResolver, claims *clerk.Claims) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		if claims != nil {
+			c.Set(string(middleware.ClaimsKey), claims)
+		}
+		c.Next()
+	})
+
+	org := r.Group("/api/v1/org")
+	org.Use(RequireOrgAccess(store))
+	RegisterOrgRoutes(org, NewHandler(store, orgs))
+	return r
+}
+
 func decodeJSON[T any](t *testing.T, rec *httptest.ResponseRecorder, target *T) {
 	t.Helper()
 	if err := json.NewDecoder(rec.Body).Decode(target); err != nil {
@@ -363,6 +379,104 @@ func TestAdminUsersBlockNonAdmin(t *testing.T) {
 	RegisterAdminRoutes(admin, NewHandler(newMemoryUserStore(), newMemoryOrgStore()))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
+func TestOrgMeReturnsResolvedMembership(t *testing.T) {
+	org := organizations.Organization{
+		ID:        "org_demo_alpha",
+		Slug:      "demo-alpha",
+		Name:      "Demo Alpha",
+		Active:    true,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+	user := User{
+		ID:           "user_demo_1",
+		ClerkUserID:  "user_1",
+		Email:        ptr("user@example.com"),
+		FirstName:    ptr("Ada"),
+		LastName:     ptr("Lovelace"),
+		Organization: org,
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
+	}
+	r := orgRouter(newMemoryUserStore(user), newMemoryOrgStore(org), &clerk.Claims{
+		Subject: "user_1",
+		OrgSlug: "demo-alpha",
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/org/me", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+
+	var body struct {
+		User         User                       `json:"user"`
+		Organization organizations.Organization `json:"organization"`
+		Auth         struct {
+			ClerkUserID string `json:"clerk_user_id"`
+			OrgSlug     string `json:"org_slug"`
+		} `json:"auth"`
+	}
+	decodeJSON(t, rec, &body)
+
+	if body.User.ClerkUserID != "user_1" {
+		t.Fatalf("user = %#v", body.User)
+	}
+	if body.Organization.Slug != "demo-alpha" {
+		t.Fatalf("organization = %#v", body.Organization)
+	}
+	if body.Auth.ClerkUserID != "user_1" || body.Auth.OrgSlug != "demo-alpha" {
+		t.Fatalf("auth = %#v", body.Auth)
+	}
+}
+
+func TestOrgMeRejectsMismatchedClaimOrg(t *testing.T) {
+	org := organizations.Organization{
+		ID:        "org_demo_alpha",
+		Slug:      "demo-alpha",
+		Name:      "Demo Alpha",
+		Active:    true,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+	user := User{
+		ID:           "user_demo_1",
+		ClerkUserID:  "user_1",
+		Organization: org,
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
+	}
+	r := orgRouter(newMemoryUserStore(user), newMemoryOrgStore(org), &clerk.Claims{
+		Subject: "user_1",
+		OrgSlug: "demo-beta",
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/org/me", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
+func TestOrgMeRejectsUnknownUser(t *testing.T) {
+	r := orgRouter(newMemoryUserStore(), newMemoryOrgStore(), &clerk.Claims{
+		Subject: "user_missing",
+		OrgSlug: "demo-alpha",
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/org/me", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 

@@ -90,3 +90,95 @@ These rules are intentional and must be preserved unless the deployment model ch
 - If a task requires destructive, long-running, or non-backward-compatible migrations, stop treating startup migrations as acceptable and propose moving to a deploy-time migration job first.
 - Keep docs in `README.md` and deployment assumptions in `deploy/cloud-run.yaml` aligned with any migration-related code changes.
 - Prefer small, explicit SQL migrations over implicit schema management in Go code.
+
+## Branch And PR Workflow
+
+This repo should be worked through short-lived feature branches, not by merging agent work directly into `main`.
+
+### Default Rule
+
+- Do not implement feature work directly on `main`.
+- Each substantial task should use its own branch.
+- Finished work should be reviewed in a PR before merging.
+
+### Recommended Setup For Multiple Agents
+
+When several agents work in parallel, use one branch and one Git worktree per agent.
+
+- `main` stays as the integration branch.
+- Each agent gets a dedicated branch created from the latest `main`.
+- Each agent should work in its own worktree, not in the same filesystem checkout as another agent.
+- Do not have multiple agents editing the same checkout on different assumptions.
+
+Recommended branch naming:
+
+- `feat/<roadmap-id>-<short-name>`
+- `fix/<short-name>`
+- `chore/<short-name>`
+
+Examples:
+
+- `feat/roadmap-01-auth-org-scope`
+- `feat/roadmap-02-customers`
+- `feat/roadmap-03-work-orders`
+
+### Agent Execution Rules
+
+Before making feature changes, an agent should:
+
+1. Check the current branch.
+2. If on `main`, create or switch to the task branch before editing.
+3. Prefer a dedicated worktree for parallel feature work.
+4. Keep its scope limited to the assigned task.
+
+While implementing:
+
+- Do not rebase, force-push, or rewrite history unless explicitly requested.
+- Do not mix unrelated roadmap tasks in the same branch.
+- Keep changes reviewable and focused.
+- Update or add tests relevant to the branch scope.
+
+When finished:
+
+1. Run relevant verification, at minimum `go test ./...` when application logic changes.
+2. Summarize the change, risks, and any follow-up work.
+3. Open or prepare a PR against `main`.
+
+### Worktree Guidance
+
+For parallel agent work, prefer a layout like:
+
+- main checkout: `/path/to/TecoraBE`
+- agent worktree 1: `/path/to/TecoraBE-auth`
+- agent worktree 2: `/path/to/TecoraBE-customers`
+- agent worktree 3: `/path/to/TecoraBE-work-orders`
+
+Example flow:
+
+1. Create branch from `main`
+2. Create worktree for that branch
+3. Assign one agent to that worktree
+4. Review changes in a PR
+5. Merge back into `main`
+
+### PR Expectations
+
+Each PR should ideally map to one roadmap task or one tightly related slice of a roadmap task.
+
+Good PR examples:
+
+- auth and organization scoping only
+- customer schema plus customer CRUD
+- work-order schema plus lifecycle endpoints
+
+Avoid PRs that combine:
+
+- customers and work orders
+- work orders and document generation
+- auth refactors and unrelated feature work
+
+### Coordination Notes
+
+- If one branch depends on another unmerged branch, state that explicitly in the PR.
+- Prefer dependency order from `ROADMAP.md` when choosing which branches can run in parallel.
+- If two agents may touch the same files, split responsibilities before implementation to avoid merge churn.

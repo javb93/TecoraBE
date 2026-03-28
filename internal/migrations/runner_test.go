@@ -50,6 +50,13 @@ func TestUpAppliesMigrationsAndThenNoOps(t *testing.T) {
 		t.Fatalf("users count = %d, want 0", count)
 	}
 
+	if err := db.QueryRow(`SELECT COUNT(*) FROM customers`).Scan(&count); err != nil {
+		t.Fatalf("count customers: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("customers count = %d, want 0", count)
+	}
+
 	var orgID string
 	if err := db.QueryRow(`SELECT id FROM organizations WHERE slug = 'demo-alpha'`).Scan(&orgID); err != nil {
 		t.Fatalf("lookup organization id: %v", err)
@@ -65,6 +72,21 @@ func TestUpAppliesMigrationsAndThenNoOps(t *testing.T) {
 	}
 	if email.Valid {
 		t.Fatalf("email should be null: %#v", email)
+	}
+
+	if _, err := db.Exec(`INSERT INTO customers (organization_id, name, email, phone, address, notes) VALUES ($1, $2, $3, $4, $5, $6)`, orgID, "Acme Co", nil, nil, nil, nil); err != nil {
+		t.Fatalf("insert nullable customer: %v", err)
+	}
+
+	var customerEmail sql.NullString
+	var customerPhone sql.NullString
+	var customerAddress sql.NullString
+	var customerNotes sql.NullString
+	if err := db.QueryRow(`SELECT email, phone, address, notes FROM customers WHERE name = $1`, "Acme Co").Scan(&customerEmail, &customerPhone, &customerAddress, &customerNotes); err != nil {
+		t.Fatalf("read nullable customer fields: %v", err)
+	}
+	if customerEmail.Valid || customerPhone.Valid || customerAddress.Valid || customerNotes.Valid {
+		t.Fatalf("customer nullable fields should be null: email=%#v phone=%#v address=%#v notes=%#v", customerEmail, customerPhone, customerAddress, customerNotes)
 	}
 
 	if err := Up(context.Background(), logger, databaseURL); err != nil {

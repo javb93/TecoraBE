@@ -12,6 +12,7 @@ The initial goal is intentionally small: ship a Go API that can be deployed now,
 - Sample protected route at `GET /api/v1/private/me`
 - Organization-scoped member endpoint at `GET /api/v1/org/me`
 - Admin organization registry routes under `/api/v1/admin/organizations`
+- Customer schema and repository foundation for organization-owned CRM records
 - PostgreSQL wiring using `pgx`
 - Clerk JWT verification middleware for protected routes, deferred for the first Cloud Run rollout
 - Docker-first local development setup
@@ -26,6 +27,7 @@ The code is organized as a small, conventional Go service:
 - `internal/config` loads and validates environment configuration.
 - `internal/database` connects to PostgreSQL.
 - `internal/auth/clerk` verifies Clerk bearer JWTs.
+- `internal/customers` contains the customer domain models and repository.
 - `internal/middleware` holds HTTP middleware.
 - `internal/server` wires the Gin engine and route groups.
 - `internal/health` provides the health endpoint handler.
@@ -159,9 +161,13 @@ Startup migration guardrails for the current Cloud Run phase:
 - keep Cloud Run capped at one instance while this simplified model is in use
 - revisit this approach before enabling normal autoscaling or non-additive schema evolution
 
-The bootstrap now includes the first application schema: an `organizations` table for multitenant scoping.
+The bootstrap now includes the first application schemas used for multitenant business data:
 
-The initial migration pair still exists as the base schema placeholder, and the next migration creates the `organizations` table and seeds temporary demo organizations so the admin registry exists before the dashboard ships.
+- `organizations` for tenant registration and scoping
+- `users` for Clerk-linked local memberships
+- `customers` for organization-owned CRM records
+
+The initial migration pair still exists as the base schema placeholder, and the next migrations create the application tables in additive steps.
 
 ## Deployment
 
@@ -226,7 +232,7 @@ The next likely additions are:
 
 - user/session endpoints
 - Clerk-protected resource routes scoped by resolved organization membership
+- customer handlers and org-scoped customer routes
 - request validation helpers
-- Postgres-backed domain tables referencing `organization_id`
 - migration runner or deploy-time migration job
 - observability improvements

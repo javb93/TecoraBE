@@ -13,6 +13,8 @@ type Config struct {
 	AppEnv             string
 	HTTPAddr           string
 	DatabaseURL        string
+	GCSBucketName      string
+	GCSDocumentPrefix  string
 	AdminClerkUserIDs  []string
 	ReadTimeout        time.Duration
 	WriteTimeout       time.Duration
@@ -52,6 +54,8 @@ func Load() (Config, error) {
 		AppEnv:             getEnv("APP_ENV", "development"),
 		HTTPAddr:           httpAddr,
 		DatabaseURL:        strings.TrimSpace(os.Getenv("DATABASE_URL")),
+		GCSBucketName:      strings.TrimSpace(os.Getenv("GCS_BUCKET_NAME")),
+		GCSDocumentPrefix:  getEnv("GCS_DOCUMENT_PREFIX", "acceptances"),
 		AdminClerkUserIDs:  adminClerkUserIDs,
 		ReadTimeout:        10 * time.Second,
 		WriteTimeout:       10 * time.Second,
@@ -85,6 +89,9 @@ func Load() (Config, error) {
 
 	if cfg.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL is required")
+	}
+	if cfg.GCSBucketName == "" {
+		return Config{}, errors.New("GCS_BUCKET_NAME is required")
 	}
 
 	if cfg.AppEnv == "" {
@@ -157,6 +164,9 @@ func durationEnv(key string, fallback time.Duration) (time.Duration, error) {
 func (c Config) Validate() error {
 	if c.DatabaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
+	}
+	if c.GCSBucketName == "" {
+		return fmt.Errorf("GCS_BUCKET_NAME is required")
 	}
 	return nil
 }

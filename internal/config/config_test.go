@@ -6,6 +6,7 @@ import (
 
 func TestLoadRequiresDatabaseURL(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
+	t.Setenv("GCS_BUCKET_NAME", "tecora-acceptances")
 	_, err := Load()
 	if err == nil {
 		t.Fatal("expected error")
@@ -14,6 +15,7 @@ func TestLoadRequiresDatabaseURL(t *testing.T) {
 
 func TestLoadParsesDefaults(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("GCS_BUCKET_NAME", "tecora-acceptances")
 	t.Setenv("APP_ENV", "development")
 	cfg, err := Load()
 	if err != nil {
@@ -28,10 +30,17 @@ func TestLoadParsesDefaults(t *testing.T) {
 	if len(cfg.AdminClerkUserIDs) != 0 {
 		t.Fatalf("AdminClerkUserIDs = %#v", cfg.AdminClerkUserIDs)
 	}
+	if cfg.GCSBucketName != "tecora-acceptances" {
+		t.Fatalf("GCSBucketName = %s", cfg.GCSBucketName)
+	}
+	if cfg.GCSDocumentPrefix != "acceptances" {
+		t.Fatalf("GCSDocumentPrefix = %s", cfg.GCSDocumentPrefix)
+	}
 }
 
 func TestLoadUsesPortEnv(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("GCS_BUCKET_NAME", "tecora-acceptances")
 	t.Setenv("PORT", "9090")
 	cfg, err := Load()
 	if err != nil {
@@ -44,6 +53,7 @@ func TestLoadUsesPortEnv(t *testing.T) {
 
 func TestLoadParsesAdminClerkUserIDs(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("GCS_BUCKET_NAME", "tecora-acceptances")
 	t.Setenv("ADMIN_CLERK_USER_IDS", "user_1, user_2 ,")
 	cfg, err := Load()
 	if err != nil {
@@ -54,5 +64,14 @@ func TestLoadParsesAdminClerkUserIDs(t *testing.T) {
 	}
 	if cfg.AdminClerkUserIDs[0] != "user_1" || cfg.AdminClerkUserIDs[1] != "user_2" {
 		t.Fatalf("AdminClerkUserIDs = %#v", cfg.AdminClerkUserIDs)
+	}
+}
+
+func TestLoadRequiresGCSBucketName(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("GCS_BUCKET_NAME", "")
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }

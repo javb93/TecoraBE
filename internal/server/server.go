@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"tecora/internal/acceptances"
 	"tecora/internal/auth/clerk"
 	"tecora/internal/config"
 	"tecora/internal/health"
@@ -76,6 +77,17 @@ func (s *Server) Run(parent context.Context) error {
 	org.Use(middleware.ClerkAuth(s.v))
 	org.Use(users.RequireOrgAccess(userRepo))
 	users.RegisterOrgRoutes(org, userHandler)
+
+	acceptanceRepo := acceptances.NewRepository(s.db)
+	acceptanceRenderer := acceptances.NewPDFRenderer()
+	acceptanceStorage := acceptances.NewGCSStorage(s.cfg.GCSBucketName, &http.Client{Timeout: 60 * time.Second})
+	acceptanceService := acceptances.NewService(acceptanceRepo, acceptanceRenderer, acceptanceStorage, s.cfg.GCSDocumentPrefix)
+	acceptanceHandler := acceptances.NewHandler(acceptanceService)
+
+	securedAPI := api.Group("")
+	securedAPI.Use(middleware.ClerkAuth(s.v))
+	securedAPI.Use(users.RequireOrgAccess(userRepo))
+	acceptances.RegisterRoutes(securedAPI, acceptanceHandler)
 
 	srv := &http.Server{
 		Addr:         s.cfg.HTTPAddr,

@@ -13,6 +13,7 @@ The initial goal is intentionally small: ship a Go API that can be deployed now,
 - Organization-scoped member endpoint at `GET /api/v1/org/me`
 - Admin organization registry routes under `/api/v1/admin/organizations`
 - Customer schema and repository foundation for organization-owned CRM records
+- Acceptance submission, PDF generation, and GCS-backed document retrieval endpoints
 - PostgreSQL wiring using `pgx`
 - Clerk JWT verification middleware for protected routes, deferred for the first Cloud Run rollout
 - Docker-first local development setup
@@ -28,6 +29,7 @@ The code is organized as a small, conventional Go service:
 - `internal/database` connects to PostgreSQL.
 - `internal/auth/clerk` verifies Clerk bearer JWTs.
 - `internal/customers` contains the customer domain models and repository.
+- `internal/acceptances` contains the acceptance repository, service, PDF renderer, GCS storage client, and handlers.
 - `internal/middleware` holds HTTP middleware.
 - `internal/server` wires the Gin engine and route groups.
 - `internal/health` provides the health endpoint handler.
@@ -126,6 +128,8 @@ The response returns the resolved local user, the organization derived from loca
 - `APP_ENV` - runtime mode, for example `development` or `production`
 - `PORT` - listen port, for example `8080`
 - `DATABASE_URL` - PostgreSQL connection string
+- `GCS_BUCKET_NAME` - required GCS bucket used for acceptance PDFs
+- `GCS_DOCUMENT_PREFIX` - optional object prefix for stored PDFs, defaults to `acceptances`
 - `CLERK_ISSUER_URL` - Clerk issuer URL
 - `CLERK_JWKS_URL` - Clerk JWKS URL
 - `CLERK_AUDIENCE` - optional Clerk audience
@@ -166,6 +170,7 @@ The bootstrap now includes the first application schemas used for multitenant bu
 - `organizations` for tenant registration and scoping
 - `users` for Clerk-linked local memberships
 - `customers` for organization-owned CRM records
+- `acceptances` for work acceptance snapshots and PDF storage metadata
 
 The initial migration pair still exists as the base schema placeholder, and the next migrations create the application tables in additive steps.
 
@@ -201,6 +206,8 @@ printf '%s' 'postgres://USER:PASSWORD@/DBNAME?host=/cloudsql/PROJECT_ID:REGION:I
 
 Make sure the Cloud Run service account has the `roles/cloudsql.client` role and `roles/secretmanager.secretAccessor` so it can reach both Cloud SQL and the `DATABASE_URL` secret.
 
+For acceptance PDFs, also grant the Cloud Run service account object access to the configured bucket. The minimal roles for this slice are `roles/storage.objectCreator` and `roles/storage.objectViewer`. If you need a simpler demo setup, `roles/storage.objectAdmin` also works but is broader than necessary.
+
 ### 4. Deploy the service
 
 Replace the placeholders in `deploy/cloud-run.yaml` and deploy the revision:
@@ -211,6 +218,14 @@ gcloud run services replace deploy/cloud-run.yaml --region REGION --project PROJ
 
 The manifest intentionally caps the service at one instance for this phase so startup migrations stay serialized in normal operation.
 Cloud Run can still briefly overlap revisions during rollout, so each migration must remain additive and safe to run with the Postgres migration lock in place.
+
+The acceptance endpoints added in this slice are:
+
+- `POST /api/v1/work-orders/:id/acceptance`
+- `GET /api/v1/acceptances/:id`
+- `GET /api/v1/acceptances/:id/pdf`
+
+These routes are protected with Clerk auth plus organization membership checks. The backend generates the PDF in memory, uploads it to GCS, stores only the metadata and object key in Postgres, and serves downloads back through the backend route instead of exposing raw bucket URLs.
 
 ### 5. Verify health
 

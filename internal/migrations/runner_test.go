@@ -57,6 +57,13 @@ func TestUpAppliesMigrationsAndThenNoOps(t *testing.T) {
 		t.Fatalf("customers count = %d, want 0", count)
 	}
 
+	if err := db.QueryRow(`SELECT COUNT(*) FROM acceptances`).Scan(&count); err != nil {
+		t.Fatalf("count acceptances: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("acceptances count = %d, want 0", count)
+	}
+
 	var orgID string
 	if err := db.QueryRow(`SELECT id FROM organizations WHERE slug = 'demo-alpha'`).Scan(&orgID); err != nil {
 		t.Fatalf("lookup organization id: %v", err)
@@ -87,6 +94,73 @@ func TestUpAppliesMigrationsAndThenNoOps(t *testing.T) {
 	}
 	if customerEmail.Valid || customerPhone.Valid || customerAddress.Valid || customerNotes.Valid {
 		t.Fatalf("customer nullable fields should be null: email=%#v phone=%#v address=%#v notes=%#v", customerEmail, customerPhone, customerAddress, customerNotes)
+	}
+
+	if _, err := db.Exec(`
+		INSERT INTO acceptances (
+			organization_id,
+			work_order_id,
+			customer_name,
+			customer_email,
+			service_date,
+			service_expiration_date,
+			service_type,
+			products,
+			notes,
+			approved,
+			signature_image_base64,
+			signed_at,
+			signed_by_technician_id,
+			pdf_status,
+			email_status,
+			pdf_storage_key,
+			pdf_mime_type,
+			pdf_error,
+			pdf_generated_at,
+			email_sent_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+		)
+	`,
+		orgID,
+		"wo-123",
+		"Acme Co",
+		"ops@acme.test",
+		"2025-03-01",
+		"2025-04-01",
+		"Quarterly",
+		"{Sealant,Inspection}",
+		"",
+		true,
+		"data:image/png;base64,abc",
+		time.Now().UTC(),
+		"tech-1",
+		"pending",
+		"pending",
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	); err != nil {
+		t.Fatalf("insert nullable acceptance fields: %v", err)
+	}
+
+	var pdfStorageKey sql.NullString
+	var pdfMimeType sql.NullString
+	var pdfError sql.NullString
+	var pdfGeneratedAt sql.NullTime
+	var emailSentAt sql.NullTime
+	if err := db.QueryRow(`
+		SELECT pdf_storage_key, pdf_mime_type, pdf_error, pdf_generated_at, email_sent_at
+		FROM acceptances
+		WHERE work_order_id = $1
+	`, "wo-123").Scan(&pdfStorageKey, &pdfMimeType, &pdfError, &pdfGeneratedAt, &emailSentAt); err != nil {
+		t.Fatalf("read acceptance nullable fields: %v", err)
+	}
+	if pdfStorageKey.Valid || pdfMimeType.Valid || pdfError.Valid || pdfGeneratedAt.Valid || emailSentAt.Valid {
+		t.Fatalf("acceptance nullable fields should be null: key=%#v mime=%#v err=%#v generated=%#v emailSent=%#v", pdfStorageKey, pdfMimeType, pdfError, pdfGeneratedAt, emailSentAt)
 	}
 
 	if err := Up(context.Background(), logger, databaseURL); err != nil {

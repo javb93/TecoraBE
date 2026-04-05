@@ -24,6 +24,10 @@ spec:
                 secretKeyRef:
                   name: tecora-database-url
                   key: latest
+            - name: GCS_BUCKET_NAME
+              value: YOUR_ACCEPTANCE_BUCKET
+            - name: GCS_DOCUMENT_PREFIX
+              value: acceptances
             - name: CORS_ALLOWED_ORIGINS
               value: https://your-frontend.example
           # Clerk is intentionally left out of the first rollout.

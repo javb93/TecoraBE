@@ -6,7 +6,7 @@ The initial goal is intentionally small: ship a Go API that can be deployed now,
 
 ## What is in this bootstrap
 
-- Go 1.21 service using the `gin` framework
+- Go 1.23 service using the `gin` framework
 - Versioned routes under `/api/v1`
 - Public health endpoint at `GET /api/v1/health`
 - Sample protected route at `GET /api/v1/private/me`

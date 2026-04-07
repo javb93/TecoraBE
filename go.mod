@@ -49,7 +49,6 @@ require (
 replace (
 	github.com/jackc/pgservicefile => github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
 	github.com/jackc/puddle/v2 => github.com/jackc/puddle/v2 v2.2.2
-	github.com/knz/go-libedit => ./third_party/go-libedit
 	golang.org/x/sync => golang.org/x/sync v0.10.0
 	golang.org/x/sys => golang.org/x/sys v0.20.0
 	golang.org/x/text => golang.org/x/text v0.14.0

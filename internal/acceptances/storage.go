@@ -44,7 +44,7 @@ func (s *GCSStorage) Upload(ctx context.Context, objectKey string, doc PDFDocume
 		return err
 	}
 
-	endpoint := "https://storage.googleapis.com/upload/storage/v1/b/" + url.PathEscape(s.bucketName) + "/o?uploadType=media&name=" + url.QueryEscape(strings.TrimSpace(objectKey))
+	endpoint := "https://storage.googleapis.com/upload/storage/v1/b/" + url.PathEscape(s.bucketName) + "/o?uploadType=media&ifGenerationMatch=0&name=" + url.QueryEscape(strings.TrimSpace(objectKey))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(doc.Bytes))
 	if err != nil {
 		return err
@@ -58,6 +58,9 @@ func (s *GCSStorage) Upload(ctx context.Context, objectKey string, doc PDFDocume
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusPreconditionFailed {
+		return ErrObjectExists
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("gcs upload failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))

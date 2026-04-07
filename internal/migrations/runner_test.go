@@ -64,6 +64,13 @@ func TestUpAppliesMigrationsAndThenNoOps(t *testing.T) {
 		t.Fatalf("acceptances count = %d, want 0", count)
 	}
 
+	if err := db.QueryRow(`SELECT COUNT(*) FROM work_orders`).Scan(&count); err != nil {
+		t.Fatalf("count work_orders: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("work_orders count = %d, want 0", count)
+	}
+
 	var orgID string
 	if err := db.QueryRow(`SELECT id FROM organizations WHERE slug = 'demo-alpha'`).Scan(&orgID); err != nil {
 		t.Fatalf("lookup organization id: %v", err)
@@ -161,6 +168,49 @@ func TestUpAppliesMigrationsAndThenNoOps(t *testing.T) {
 	}
 	if pdfStorageKey.Valid || pdfMimeType.Valid || pdfError.Valid || pdfGeneratedAt.Valid || emailSentAt.Valid {
 		t.Fatalf("acceptance nullable fields should be null: key=%#v mime=%#v err=%#v generated=%#v emailSent=%#v", pdfStorageKey, pdfMimeType, pdfError, pdfGeneratedAt, emailSentAt)
+	}
+
+	if _, err := db.Exec(`
+		INSERT INTO work_orders (
+			organization_id,
+			work_order_id,
+			customer_name,
+			customer_email,
+			customer_phone,
+			customer_address,
+			job_date,
+			status,
+			deleted_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`, orgID, "WO-1001", "Acme Co", nil, nil, "123 Main", "2025-03-15", nil, nil); err != nil {
+		t.Fatalf("insert nullable work order fields: %v", err)
+	}
+
+	var workOrderCustomerEmail sql.NullString
+	var workOrderCustomerPhone sql.NullString
+	var workOrderStatus sql.NullString
+	var workOrderDeletedAt sql.NullTime
+	if err := db.QueryRow(`
+		SELECT customer_email, customer_phone, status, deleted_at
+		FROM work_orders
+		WHERE work_order_id = $1
+	`, "WO-1001").Scan(&workOrderCustomerEmail, &workOrderCustomerPhone, &workOrderStatus, &workOrderDeletedAt); err != nil {
+		t.Fatalf("read work order nullable fields: %v", err)
+	}
+	if workOrderCustomerEmail.Valid || workOrderCustomerPhone.Valid || workOrderStatus.Valid || workOrderDeletedAt.Valid {
+		t.Fatalf("work order nullable fields should be null: email=%#v phone=%#v status=%#v deletedAt=%#v", workOrderCustomerEmail, workOrderCustomerPhone, workOrderStatus, workOrderDeletedAt)
+	}
+
+	if _, err := db.Exec(`
+		INSERT INTO work_orders (
+			organization_id,
+			work_order_id,
+			customer_name,
+			customer_address,
+			job_date
+		) VALUES ($1, $2, $3, $4, $5)
+	`, orgID, "WO-1001", "Acme Duplicate", "456 Main", "2025-03-16"); err == nil {
+		t.Fatal("expected duplicate active work order constraint error")
 	}
 
 	if err := Up(context.Background(), logger, databaseURL); err != nil {

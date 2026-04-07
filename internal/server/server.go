@@ -17,6 +17,7 @@ import (
 	"tecora/internal/middleware"
 	"tecora/internal/organizations"
 	"tecora/internal/users"
+	"tecora/internal/workorders"
 )
 
 type Dependencies struct {
@@ -84,9 +85,13 @@ func (s *Server) Run(parent context.Context) error {
 	acceptanceService := acceptances.NewService(acceptanceRepo, acceptanceRenderer, acceptanceStorage, s.cfg.GCSDocumentPrefix)
 	acceptanceHandler := acceptances.NewHandler(acceptanceService)
 
+	workOrderRepo := workorders.NewRepository(s.db)
+	workOrderHandler := workorders.NewHandler(workOrderRepo)
+
 	securedAPI := api.Group("")
 	securedAPI.Use(middleware.ClerkAuth(s.v))
 	securedAPI.Use(users.RequireOrgAccess(userRepo))
+	workorders.RegisterRoutes(securedAPI, workOrderHandler)
 	acceptances.RegisterRoutes(securedAPI, acceptanceHandler)
 
 	srv := &http.Server{

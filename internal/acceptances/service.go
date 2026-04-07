@@ -74,6 +74,9 @@ func (s *Service) Submit(ctx context.Context, organizationID string, submission 
 
 	objectKey := s.objectKey(record.OrganizationID, record.ID)
 	if err := s.storage.Upload(ctx, objectKey, pdf); err != nil {
+		if errors.Is(err, ErrObjectExists) {
+			return s.store.MarkPDFGenerated(ctx, record.OrganizationID, record.ID, objectKey, pdf.ContentType)
+		}
 		return s.store.MarkPDFFailed(ctx, record.OrganizationID, record.ID, fmt.Sprintf("upload pdf: %v", err))
 	}
 

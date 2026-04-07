@@ -12,6 +12,7 @@ var (
 	ErrInvalidInput   = errors.New("invalid acceptance input")
 	ErrPDFNotReady    = errors.New("acceptance pdf is not available")
 	ErrObjectNotFound = errors.New("document object not found")
+	ErrObjectExists   = errors.New("document object already exists")
 )
 
 type PDFStatus string

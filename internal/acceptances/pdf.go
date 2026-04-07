@@ -22,8 +22,8 @@ const (
 	pdfPageMargin    = 44.0
 	pdfSectionGap    = 18.0
 	pdfContentWidth  = pdfPageWidth - (pdfPageMargin * 2)
-	pdfFooterHeight  = 132.0
-	pdfSignatureArea = 208.0
+	pdfFooterHeight  = 152.0
+	pdfSignatureArea = 220.0
 )
 
 func NewPDFRenderer() *Renderer {
@@ -101,49 +101,49 @@ func buildPDFContent(record Record) (string, []byte, error) {
 	headerBottom := pdfPageHeight - 126
 	writeFillColor(&content, 0.09, 0.21, 0.34)
 	drawFilledRect(&content, pdfPageMargin, headerBottom, pdfContentWidth, 82)
-	writeText(&content, "/F1", 10, 0.85, 0.91, 0.95, pdfPageMargin+24, headerBottom+57, "WORK ACCEPTANCE")
+	writeText(&content, "/F1", 10, 0.85, 0.91, 0.95, pdfPageMargin+24, headerBottom+57, "ACEPTACION DE SERVICIO")
 	writeText(&content, "/F2", 26, 1, 1, 1, pdfPageMargin+24, headerBottom+30, record.WorkOrderID)
-	writeText(&content, "/F1", 11, 0.85, 0.91, 0.95, pdfPageMargin+24, headerBottom+12, "Acceptance ID "+record.ID)
+	writeText(&content, "/F1", 11, 0.85, 0.91, 0.95, pdfPageMargin+24, headerBottom+12, "ID de aceptacion "+record.ID)
 
-	statusText := "Pending approval"
+	statusText := "Pendiente"
 	statusR, statusG, statusB := 0.64, 0.16, 0.16
 	if record.Approved {
-		statusText = "Approved"
+		statusText = "Aprobado"
 		statusR, statusG, statusB = 0.13, 0.44, 0.24
 	}
 	drawRoundedBadge(&content, pdfPageMargin+pdfContentWidth-132, headerBottom+21, 92, 30, statusR, statusG, statusB)
 	writeText(&content, "/F2", 11, 1, 1, 1, pdfPageMargin+pdfContentWidth-106, headerBottom+31, strings.ToUpper(statusText))
 
 	y := headerBottom - 18.0
-	y = drawSectionHeader(&content, y, "Customer Information")
+	y = drawSectionHeader(&content, y, "Informacion del cliente")
 	y = drawDetailBox(&content, y, []detailRow{
-		{Label: "Name", Value: defaultValue(record.CustomerName)},
-		{Label: "Email", Value: defaultValue(record.CustomerEmail)},
+		{Label: "Nombre", Value: defaultValue(record.CustomerName)},
+		{Label: "Correo", Value: defaultValue(record.CustomerEmail)},
 	})
 
 	y -= pdfSectionGap
-	y = drawSectionHeader(&content, y, "Job Information")
+	y = drawSectionHeader(&content, y, "Informacion del trabajo")
 	expirationValue := highlightValue(record.ServiceExpirationDate)
 	y = drawDetailBox(&content, y, []detailRow{
-		{Label: "Service Date", Value: defaultValue(record.ServiceDate)},
-		{Label: "Expiration Date", Value: expirationValue, Highlight: true},
-		{Label: "Service Type", Value: defaultValue(record.ServiceType)},
-		{Label: "Technician", Value: defaultValue(record.SignedByTechnicianID)},
-		{Label: "Signed At (UTC)", Value: record.SignedAt.UTC().Format(time.RFC3339)},
+		{Label: "Fecha de servicio", Value: defaultValue(record.ServiceDate)},
+		{Label: "Fecha de vencimiento", Value: expirationValue, Highlight: true},
+		{Label: "Tipo de servicio", Value: defaultValue(record.ServiceType)},
+		{Label: "Tecnico", Value: defaultValue(record.SignedByTechnicianID)},
+		{Label: "Fecha de firma (UTC)", Value: record.SignedAt.UTC().Format(time.RFC3339)},
 	})
 
 	y -= pdfSectionGap
-	y = drawSectionHeader(&content, y, "Included Products")
+	y = drawSectionHeader(&content, y, "Productos incluidos")
 	y = drawListBox(&content, y, sanitizedProducts(record.Products))
 
 	y -= pdfSectionGap
-	y = drawSectionHeader(&content, y, "Notes")
+	y = drawSectionHeader(&content, y, "Notas")
 	y = drawParagraphBox(&content, y, defaultNotes(record.Notes))
 
 	drawSignatureFooter(&content, imageWidth, imageHeight)
 	if imageObject != nil {
-		const maxWidth = 170.0
-		const maxHeight = 54.0
+		const maxWidth = 176.0
+		const maxHeight = 44.0
 		drawWidth := float64(imageWidth)
 		drawHeight := float64(imageHeight)
 		scale := min(maxWidth/drawWidth, maxHeight/drawHeight)
@@ -151,8 +151,8 @@ func buildPDFContent(record Record) (string, []byte, error) {
 			drawWidth *= scale
 			drawHeight *= scale
 		}
-		x := pdfPageWidth - pdfPageMargin - drawWidth - 18
-		y := 48.0
+		x := pdfPageWidth - pdfPageMargin - drawWidth - 20
+		y := 52.0
 		content.WriteString(fmt.Sprintf("q %.2f 0 0 %.2f %.2f %.2f cm /Im1 Do Q\n", drawWidth, drawHeight, x, y))
 	}
 
@@ -167,30 +167,30 @@ type detailRow struct {
 
 func drawSectionHeader(content *strings.Builder, y float64, title string) float64 {
 	writeText(content, "/F2", 13, 0.09, 0.21, 0.34, pdfPageMargin, y, title)
-	drawLine(content, pdfPageMargin, y-6, pdfPageMargin+pdfContentWidth, y-6, 1.2, 0.77, 0.82, 0.87)
-	return y - 16
+	drawLine(content, pdfPageMargin, y-9, pdfPageMargin+pdfContentWidth, y-9, 1.0, 0.77, 0.82, 0.87)
+	return y - 20
 }
 
 func drawDetailBox(content *strings.Builder, top float64, rows []detailRow) float64 {
-	const rowHeight = 28.0
-	height := (float64(len(rows)) * rowHeight) + 18
+	const rowHeight = 38.0
+	height := (float64(len(rows)) * rowHeight) + 16
 	bottom := top - height
 
 	writeFillColor(content, 0.97, 0.98, 0.99)
 	drawFilledRect(content, pdfPageMargin, bottom, pdfContentWidth, height)
 	drawStrokeRect(content, pdfPageMargin, bottom, pdfContentWidth, height, 0.8, 0.85, 0.88, 0.91)
 
-	currentY := top - 20.0
+	currentY := top - 18.0
 	for i, row := range rows {
 		if i > 0 {
-			drawLine(content, pdfPageMargin+18, currentY+10, pdfPageMargin+pdfContentWidth-18, currentY+10, 0.6, 0.88, 0.9, 0.93)
+			drawLine(content, pdfPageMargin+18, currentY+13, pdfPageMargin+pdfContentWidth-18, currentY+13, 0.6, 0.88, 0.9, 0.93)
 		}
-		writeText(content, "/F1", 9, 0.38, 0.45, 0.53, pdfPageMargin+18, currentY+8, strings.ToUpper(row.Label))
+		writeText(content, "/F1", 8.5, 0.38, 0.45, 0.53, pdfPageMargin+18, currentY+10, strings.ToUpper(row.Label))
 		if row.Highlight {
 			writeFillColor(content, 1, 0.95, 0.86)
-			drawFilledRect(content, pdfPageMargin+166, currentY-3, 162, 18)
+			drawFilledRect(content, pdfPageMargin+170, currentY-7, 176, 22)
 		}
-		writeText(content, "/F2", 12, 0.11, 0.13, 0.16, pdfPageMargin+104, currentY+4, row.Value)
+		writeText(content, "/F2", 12, 0.11, 0.13, 0.16, pdfPageMargin+112, currentY-1, row.Value)
 		currentY -= rowHeight
 	}
 
@@ -210,7 +210,7 @@ func drawListBox(content *strings.Builder, top float64, items []string) float64 
 		}
 	}
 	if len(lines) == 0 {
-		lines = []string{"• None listed"}
+		lines = []string{"• Ninguno"}
 	}
 
 	const lineHeight = 16.0
@@ -233,7 +233,7 @@ func drawListBox(content *strings.Builder, top float64, items []string) float64 
 func drawParagraphBox(content *strings.Builder, top float64, notes string) float64 {
 	lines := wrapText(notes, 72)
 	if len(lines) == 0 {
-		lines = []string{"No additional notes provided."}
+		lines = []string{"No se proporcionaron notas adicionales."}
 	}
 
 	const lineHeight = 15.0
@@ -262,23 +262,23 @@ func drawParagraphBox(content *strings.Builder, top float64, notes string) float
 }
 
 func drawSignatureFooter(content *strings.Builder, imageWidth, imageHeight int) {
-	footerY := 34.0
-	leftWidth := pdfContentWidth - pdfSignatureArea - 12
+	footerY := 28.0
+	leftWidth := pdfContentWidth - pdfSignatureArea - 18
 
 	drawLine(content, pdfPageMargin, pdfFooterHeight, pdfPageMargin+pdfContentWidth, pdfFooterHeight, 1.0, 0.84, 0.87, 0.9)
-	writeText(content, "/F2", 12, 0.09, 0.21, 0.34, pdfPageMargin, footerY+62, "Acceptance Confirmation")
-	writeText(content, "/F1", 10, 0.36, 0.42, 0.49, pdfPageMargin, footerY+44, "Customer and service details above were acknowledged at the time of signature.")
-	writeText(content, "/F1", 10, 0.36, 0.42, 0.49, pdfPageMargin, footerY+28, "This document is intended to be clear, readable, and ready for sharing or archiving.")
+	writeText(content, "/F2", 12, 0.09, 0.21, 0.34, pdfPageMargin, footerY+78, "Confirmacion de aceptacion")
+	writeText(content, "/F1", 9.5, 0.36, 0.42, 0.49, pdfPageMargin, footerY+56, "Los datos del cliente y del servicio fueron confirmados al momento de la firma.")
+	writeText(content, "/F1", 9.5, 0.36, 0.42, 0.49, pdfPageMargin, footerY+40, "Este documento esta disenado para facilitar su lectura, envio y archivo.")
 
-	sigX := pdfPageMargin + leftWidth + 12
+	sigX := pdfPageMargin + leftWidth + 18
 	writeFillColor(content, 0.97, 0.98, 0.99)
-	drawFilledRect(content, sigX, footerY, pdfSignatureArea, 82)
-	drawStrokeRect(content, sigX, footerY, pdfSignatureArea, 82, 0.8, 0.85, 0.88, 0.91)
-	writeText(content, "/F1", 9, 0.38, 0.45, 0.53, sigX+16, footerY+64, "SIGNATURE")
+	drawFilledRect(content, sigX, footerY, pdfSignatureArea, 96)
+	drawStrokeRect(content, sigX, footerY, pdfSignatureArea, 96, 0.8, 0.85, 0.88, 0.91)
+	writeText(content, "/F1", 9, 0.38, 0.45, 0.53, sigX+16, footerY+78, "FIRMA")
 	if imageWidth == 0 || imageHeight == 0 {
-		writeText(content, "/F1", 10, 0.45, 0.48, 0.52, sigX+16, footerY+38, "Signature unavailable")
+		writeText(content, "/F1", 10, 0.45, 0.48, 0.52, sigX+16, footerY+48, "Firma no disponible")
 	}
-	drawLine(content, sigX+16, footerY+18, sigX+pdfSignatureArea-16, footerY+18, 0.8, 0.74, 0.78, 0.83)
+	drawLine(content, sigX+16, footerY+24, sigX+pdfSignatureArea-16, footerY+24, 0.8, 0.74, 0.78, 0.83)
 }
 
 func drawFilledRect(content *strings.Builder, x, y, width, height float64) {
@@ -406,7 +406,7 @@ func yesNo(value bool) string {
 func defaultValue(input string) string {
 	trimmed := strings.TrimSpace(input)
 	if trimmed == "" {
-		return "Not provided"
+		return "No proporcionado"
 	}
 	return trimmed
 }
@@ -414,7 +414,7 @@ func defaultValue(input string) string {
 func defaultNotes(input string) string {
 	trimmed := strings.TrimSpace(input)
 	if trimmed == "" {
-		return "No additional notes provided."
+		return "No se proporcionaron notas adicionales."
 	}
 	return trimmed
 }
@@ -432,9 +432,9 @@ func sanitizedProducts(products []string) []string {
 func highlightValue(input string) string {
 	trimmed := strings.TrimSpace(input)
 	if trimmed == "" {
-		return "Not provided"
+		return "No proporcionado"
 	}
-	return "Expires: " + trimmed
+	return "Vence: " + trimmed
 }
 
 func min(a, b float64) float64 {

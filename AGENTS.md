@@ -93,20 +93,21 @@ These rules are intentional and must be preserved unless the deployment model ch
 
 ## Branch And PR Workflow
 
-This repo should be worked through short-lived feature branches, not by merging agent work directly into `main`.
+This repo should default to the user's current branch. If the user wants work to happen on `main`, do not create or switch branches unless they explicitly ask.
 
 ### Default Rule
 
-- Do not implement feature work directly on `main`.
-- Each substantial task should use its own branch.
-- Finished work should be reviewed in a PR before merging.
+- Default to the current checked out branch.
+- If the current branch is `main`, continue on `main` unless the user explicitly requests a separate branch or PR workflow.
+- Use a separate branch only when the user asks for it or when parallel work requires isolation.
+- Finished work should be reviewed in a PR before merging when a branch-based workflow is being used.
 
 ### Recommended Setup For Multiple Agents
 
 When several agents work in parallel, use one branch and one Git worktree per agent.
 
 - `main` stays as the integration branch.
-- Each agent gets a dedicated branch created from the latest `main`.
+- Each agent gets a dedicated branch created from the latest `main` only when the user wants parallel branch-based work.
 - Each agent should work in its own worktree, not in the same filesystem checkout as another agent.
 - Do not have multiple agents editing the same checkout on different assumptions.
 
@@ -127,8 +128,8 @@ Examples:
 Before making feature changes, an agent should:
 
 1. Check the current branch.
-2. If on `main`, create or switch to the task branch before editing.
-3. Prefer a dedicated worktree for parallel feature work.
+2. Stay on the current branch unless the user explicitly asks for a different branch or a parallel workflow requires one.
+3. Prefer a dedicated worktree for parallel feature work when multiple branches are in use.
 4. Keep its scope limited to the assigned task.
 
 While implementing:
